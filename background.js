@@ -1,4 +1,4 @@
-import { scanUrl } from './services/virustotal.js';
+import { scanUrl, verifyApiKey } from './services/virustotal.js';
 import { storeUrlResult } from './services/storage.js';
 
 // Listen for navigation events
@@ -7,6 +7,12 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return;
 
   try {
+    const { apiKeyValid } = await chrome.storage.local.get('apiKeyValid');
+    if (!apiKeyValid) {
+      // Gate: do not scan until API key is verified
+      return;
+    }
+
     const url = new URL(details.url);
 
     // Skip local/internal URLs and browser pages
@@ -125,4 +131,29 @@ chrome.runtime.onMessage.addListener((message) => {
     chrome.action.setBadgeText({ text: '' });
   }
   return true;
+});
+
+// Verify API key on startup and when key changes
+async function ensureApiKeyValidation() {
+  const { apiKey } = await chrome.storage.local.get('apiKey');
+  if (!apiKey) {
+    await chrome.storage.local.set({ apiKeyValid: false });
+    return;
+  }
+  const res = await verifyApiKey(apiKey);
+  await chrome.storage.local.set({ apiKeyValid: !!res.ok });
+}
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureApiKeyValidation();
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  ensureApiKeyValidation();
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.apiKey) {
+    ensureApiKeyValidation();
+  }
 });
