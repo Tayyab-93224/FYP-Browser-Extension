@@ -1,4 +1,5 @@
 import { getAllUrls, clearHistory } from '../services/storage.js';
+import { verifyApiKey } from '../services/virustotal.js';
 
 // Initialize variables
 let currentUrl = '';
@@ -34,29 +35,59 @@ const saveApiKeyBtn = document.getElementById('save-api-key-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const settingsBtn = document.getElementById('settings-btn');
 
-// Check if API key is set
+// Add error message element for API key modal
+const apiKeyErrorEl = document.createElement('div');
+apiKeyErrorEl.style.color = 'var(--color-danger)';
+apiKeyErrorEl.style.fontSize = '13px';
+apiKeyErrorEl.style.marginTop = '8px';
+apiKeyErrorEl.className = 'api-key-error';
+apiKeyInput.parentNode.appendChild(apiKeyErrorEl);
+
+// Helper function to validate VirusTotal API key format
+function isValidApiKey(key) {
+  // VirusTotal API keys are 64 hex characters (v3), or 32 chars (v2, legacy)
+  return /^[a-fA-F0-9]{64}$/.test(key) || /^[a-fA-F0-9]{32}$/.test(key);
+}
+
+// Check if API key is verified
 async function checkApiKey() {
-  const result = await chrome.storage.local.get('apiKey');
-  apiKeySet = result.apiKey ? true : false;
-  
+  const result = await chrome.storage.local.get(['apiKey', 'apiKeyValid']);
+  const apiKey = result.apiKey ? result.apiKey.trim() : '';
+  const validFormat = isValidApiKey(apiKey);
+  apiKeySet = !!result.apiKeyValid && validFormat;
+
   if (!apiKeySet) {
     showApiKeyModal();
+    apiKeyErrorEl.textContent = 'Please enter a valid API key.';
+  } else {
+    apiKeyErrorEl.textContent = '';
   }
 }
 
 // Save API key
 saveApiKeyBtn.addEventListener('click', async () => {
   const apiKey = apiKeyInput.value.trim();
-  
-  if (apiKey) {
-    await chrome.storage.local.set({ apiKey });
+
+  if (!isValidApiKey(apiKey)) {
+    await chrome.storage.local.set({ apiKeyValid: false });
+    apiKeyErrorEl.textContent = 'Please enter a valid API key.';
+    apiKeyInput.focus();
+    return;
+  }
+
+  // Verify with VirusTotal
+  apiKeyErrorEl.textContent = 'Verifying API key...';
+  const verification = await verifyApiKey(apiKey);
+  if (verification.ok) {
+    await chrome.storage.local.set({ apiKey, apiKeyValid: true });
     apiKeySet = true;
     apiKeyModal.classList.add('hidden');
-    
-    // Reload current tab data with the new API key
-    getCurrentTabUrl();
+    apiKeyErrorEl.textContent = '';
+    // Refresh UI sections now that key is valid
+    await initAfterKeyValid();
   } else {
-    apiKeyInput.focus();
+    await chrome.storage.local.set({ apiKeyValid: false });
+    apiKeyErrorEl.textContent = 'API key not accepted by VirusTotal.';
   }
 });
 
@@ -88,20 +119,48 @@ async function init() {
   // Check if API key is set
   await checkApiKey();
   
-  // Get current URL and update UI
-  getCurrentTabUrl();
-  
-  // Load URL history
-  loadUrlHistory();
-  
-  // Load statistics
-  loadStatistics();
+  if (apiKeySet) {
+    await initAfterKeyValid();
+  } else {
+    // Hide scan details and show empty states while waiting for valid key
+    scanDetailsEl.classList.add('hidden');
+    const status = document.querySelector('.scan-status');
+    if (status) {
+      status.className = 'scan-status pending';
+      statusTextEl.textContent = 'API key required';
+    }
+    // Clear history UI to appear empty
+    historyListEl.innerHTML = `
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-history">
+          <path d="M3 3v5h5"></path>
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+          <path d="M12 7v5l4 2"></path>
+        </svg>
+        <p>Enter a valid API key to begin</p>
+      </div>
+    `;
+    // Zero out stats
+    totalScansEl.textContent = '0';
+    threatsBlockedEl.textContent = '0';
+    scanProgressBarEl.style.width = '100%';
+    scanRateValueEl.textContent = '100%';
+  }
   
   // Set up tab navigation
   setupTabs();
   
   // Listen for history filter changes
   historyFilterEl.addEventListener('change', loadUrlHistory);
+}
+
+async function initAfterKeyValid() {
+  // Get current URL and update UI
+  getCurrentTabUrl();
+  // Load URL history
+  await loadUrlHistory();
+  // Load statistics
+  await loadStatistics();
 }
 
 // Get current tab URL
@@ -189,6 +248,22 @@ function updateCurrentUrlStatus(result) {
 
 // Load URL history
 async function loadUrlHistory() {
+  // Gate UI when API key is not validated
+  const { apiKeyValid } = await chrome.storage.local.get('apiKeyValid');
+  if (!apiKeyValid) {
+    historyListEl.innerHTML = `
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-history">
+          <path d="M3 3v5h5"></path>
+          <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+          <path d="M12 7v5l4 2"></path>
+        </svg>
+        <p>Enter a valid API key to begin</p>
+      </div>
+    `;
+    return;
+  }
+
   const filter = historyFilterEl.value;
   const urls = await getAllUrls();
   
