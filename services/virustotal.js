@@ -1,3 +1,22 @@
+export async function verifyApiKey(apiKeyOverride) {
+    try {
+        const res = await chrome.storage.local.get('apiKey');
+        const apiKey = (apiKeyOverride || res.apiKey || '').trim();
+        if (!apiKey) {
+            return { ok: false, status: 0 };
+        }
+
+        const response = await fetch('https://www.virustotal.com/api/v3/users/me', {
+            method: 'GET',
+            headers: { 'x-apikey': apiKey }
+        });
+
+        return { ok: response.ok, status: response.status };
+    } catch (e) {
+        return { ok: false, status: -1 };
+    }
+}
+
 export async function scanUrl(url) {
     try {
         const res = await chrome.storage.local.get('apiKey');
