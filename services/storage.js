@@ -15,17 +15,21 @@ export async function storeUrlResult(url, result) {
       // Update existing entry
       urlList[existingIndex] = {
         url,
-        scanTime: result.scanTime,
+        scanTime: result.scanTime || new Date().toISOString(),
         isMalicious: result.isMalicious,
-        scanSuccess: result.scanSuccess
+        scanSuccess: result.scanSuccess,
+        hasVirusTotal: !!result.virusTotal,
+        hasMlModel: !!result.mlModel
       };
     } else {
       // Add new entry
       urlList.push({
         url,
-        scanTime: result.scanTime,
+        scanTime: result.scanTime || new Date().toISOString(),
         isMalicious: result.isMalicious,
-        scanSuccess: result.scanSuccess
+        scanSuccess: result.scanSuccess,
+        hasVirusTotal: !!result.virusTotal,
+        hasMlModel: !!result.mlModel
       });
     }
     
