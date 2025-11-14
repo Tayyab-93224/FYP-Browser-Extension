@@ -22,6 +22,12 @@ const threatsBlockedEl = document.getElementById('threats-blocked');
 const scanProgressBarEl = document.getElementById('scan-progress-bar');
 const scanRateValueEl = document.getElementById('scan-rate-value');
 
+// ML Model DOM Elements
+const mlPredictionEl = document.getElementById('ml-prediction');
+const mlConfidenceEl = document.getElementById('ml-confidence');
+const vtStatusIndicatorEl = document.getElementById('vt-status-indicator');
+const mlStatusIndicatorEl = document.getElementById('ml-status-indicator');
+
 // Tab Elements
 const historyTabBtn = document.getElementById('history-tab-btn');
 const statsTabBtn = document.getElementById('stats-tab-btn');
@@ -191,21 +197,74 @@ function getCurrentTabUrl() {
   });
 }
 
-// Update current URL status      // iss ko change karna hai yaad rakheen
+// Update current URL status
 function updateCurrentUrlStatus(result) {
   scanDetailsEl.classList.remove('hidden');
   
-  // Update scan stats
-  maliciousCountEl.textContent = result.stats.malicious;
-  suspiciousCountEl.textContent = result.stats.suspicious;
-  cleanCountEl.textContent = result.stats.harmless + result.stats.undetected;
+  // Handle both old format (direct stats) and new format (combined results)
+  const virusTotalResult = result.virusTotal || result;
+  const mlModelResult = result.mlModel;
+  
+  // Update VirusTotal results
+  if (virusTotalResult && virusTotalResult.stats) {
+    maliciousCountEl.textContent = virusTotalResult.stats.malicious || 0;
+    suspiciousCountEl.textContent = virusTotalResult.stats.suspicious || 0;
+    cleanCountEl.textContent = (virusTotalResult.stats.harmless || 0) + (virusTotalResult.stats.undetected || 0);
+    
+    // Update VirusTotal status indicator
+    if (virusTotalResult.scanSuccess) {
+      vtStatusIndicatorEl.className = 'api-status-indicator success';
+    } else {
+      vtStatusIndicatorEl.className = 'api-status-indicator error';
+    }
+  } else {
+    maliciousCountEl.textContent = '-';
+    suspiciousCountEl.textContent = '-';
+    cleanCountEl.textContent = '-';
+    vtStatusIndicatorEl.className = 'api-status-indicator error';
+  }
+  
+  // Update ML Model results
+  if (mlModelResult) {
+    const prediction = mlModelResult.prediction || 'unknown';
+    const confidence = mlModelResult.confidence || 0;
+    
+    // Format prediction text
+    let predictionText = prediction;
+    if (prediction === 'malicious' || prediction === 'phishing') {
+      predictionText = 'Malicious';
+    } else if (prediction === 'benign' || prediction === 'safe') {
+      predictionText = 'Safe';
+    } else {
+      predictionText = prediction.charAt(0).toUpperCase() + prediction.slice(1);
+    }
+    
+    mlPredictionEl.textContent = predictionText;
+    mlConfidenceEl.textContent = typeof confidence === 'number' 
+      ? `${(confidence * 100).toFixed(1)}%` 
+      : `${confidence}%`;
+    
+    // Update ML Model status indicator
+    if (mlModelResult.scanSuccess) {
+      mlStatusIndicatorEl.className = 'api-status-indicator success';
+    } else {
+      mlStatusIndicatorEl.className = 'api-status-indicator error';
+    }
+  } else {
+    mlPredictionEl.textContent = '-';
+    mlConfidenceEl.textContent = '-';
+    mlStatusIndicatorEl.className = 'api-status-indicator error';
+  }
   
   // Update last scan time
-  const scanDate = new Date(result.scanTime);
+  const scanDate = new Date(result.scanTime || new Date());
   lastScanTimeEl.textContent = `Last scanned: ${formatDate(scanDate)}`;
   
-  // Update status indicator
-  if (result.isMalicious) {
+  // Update overall status indicator (combine both results)
+  const isMalicious = result.isMalicious || false;
+  const hasSuspicious = virusTotalResult?.stats?.suspicious > 0;
+  
+  if (isMalicious) {
     scanStatusEl.className = 'scan-status danger';
     statusTextEl.textContent = 'Malicious';
     scanStatusEl.innerHTML = `
@@ -218,7 +277,7 @@ function updateCurrentUrlStatus(result) {
       </span>
       <span id="status-text">Malicious</span>
     `;
-  } else if (result.stats.suspicious > 0) {
+  } else if (hasSuspicious) {
     scanStatusEl.className = 'scan-status warning';
     statusTextEl.textContent = 'Suspicious';
     scanStatusEl.innerHTML = `
