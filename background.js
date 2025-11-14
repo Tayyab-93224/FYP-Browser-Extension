@@ -1,4 +1,5 @@
 import { scanUrl, verifyApiKey } from './services/virustotal.js';
+import { scanUrlWithMlModel } from './services/mlmodel.js';
 import { storeUrlResult } from './services/storage.js';
 
 // Listen for navigation events
@@ -42,16 +43,36 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
       }
     }
 
-    // Scan the URL with VirusTotal
-    const result = await scanUrl(url.href);
-    console.log("Scan Result: \n", result);
+    // Scan the URL with both VirusTotal and ML Model APIs in parallel
+    const [virusTotalResult, mlModelResult] = await Promise.allSettled([
+      scanUrl(url.href),
+      scanUrlWithMlModel(url.href)
+    ]);
 
-    // Store the result
-    await storeUrlResult(url.href, result);
+    // Extract results (handle potential rejections)
+    const vtResult = virusTotalResult.status === 'fulfilled' ? virusTotalResult.value : null;
+    const mlResult = mlModelResult.status === 'fulfilled' ? mlModelResult.value : null;
+
+    // Combine results
+    const combinedResult = {
+      url: url.href,
+      scanTime: new Date().toISOString(),
+      virusTotal: vtResult,
+      mlModel: mlResult,
+      // Determine overall malicious status (if either API flags it as malicious)
+      isMalicious: (vtResult?.isMalicious || false) || (mlResult?.isMalicious || false),
+      // Overall scan success (at least one API succeeded)
+      scanSuccess: (vtResult?.scanSuccess || false) || (mlResult?.scanSuccess || false)
+    };
+
+    console.log("Combined Scan Result: \n", combinedResult);
+
+    // Store the combined result
+    await storeUrlResult(url.href, combinedResult);
 
     // Show alert if the URL is malicious
-    if (result.isMalicious) {
-      showAlert(url.href, result);
+    if (combinedResult.isMalicious) {
+      showAlert(url.href, combinedResult);
     } else {
       console.log('No threats detected.');
     }
@@ -67,8 +88,21 @@ function showAlert(url, scanResult) {
       const tabId = tabs[0].id;
 
       // Create notification with detailed info
-      const maliciousCount = scanResult.stats.malicious;
-      const suspiciousCount = scanResult.stats.suspicious;
+      const maliciousCount = scanResult.virusTotal?.stats?.malicious || 0;
+      const suspiciousCount = scanResult.virusTotal?.stats?.suspicious || 0;
+      const mlModelFlagged = scanResult.mlModel?.isMalicious || false;
+      
+      // Build alert message
+      let alertMessage = '';
+      if (maliciousCount > 0 || suspiciousCount > 0) {
+        alertMessage = `⚠ Danger: This site has been flagged malicious by ${maliciousCount} security vendors`;
+        if (mlModelFlagged) {
+          alertMessage += ' and by ML model analysis';
+        }
+        alertMessage += '. Hackers will likely attempt to steal your information.';
+      } else if (mlModelFlagged) {
+        alertMessage = '⚠ Danger: This site has been flagged as malicious by ML model analysis. Exercise caution.';
+      }
 
       // Send message to popup if it's open
       chrome.runtime.sendMessage({
@@ -102,7 +136,7 @@ function showAlert(url, scanResult) {
           div.style.alignItems = 'center';
           div.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
 
-          div.textContent = `⚠ Danger: This site has been flagged malicious by ${warningDetails.maliciousCount} security vendors. Hackers will likely attempt to steal your information.`;
+          div.textContent = warningDetails.alertMessage;
 
           const closeBtn = document.createElement('button');
           closeBtn.textContent = 'x';
@@ -119,7 +153,7 @@ function showAlert(url, scanResult) {
           div.appendChild(closeBtn);
           document.body.prepend(div);
         },
-        args: [{ maliciousCount, suspiciousCount }]
+        args: [{ maliciousCount, suspiciousCount, alertMessage }]
       });
     }
   });
