@@ -6,7 +6,6 @@ from flask_cors import CORS  # Import CORS
 from urllib.parse import urlparse
 
 
-# --- Initialize the Flask App ---
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
@@ -44,7 +43,6 @@ def health():
         'model_loaded': True
     }), 200
 
-# --- Define the Prediction API Endpoint ---
 @app.route('/predict', methods=['POST', 'GET'])
 def predict():
     if not model:
