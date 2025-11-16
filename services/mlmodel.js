@@ -26,19 +26,23 @@ export async function scanUrlWithMlModel(url) {
     const data = await response.json();
     
     // Parse ML model response
-    // Adjust these fields based on your ML model's actual response format
-    const prediction = data.prediction || data.result || data.class || data.label;
+    // The API returns: { prediction: 1 (phishing) or 0 (safe), status: 'phishing' or 'safe' }
+    const prediction = data.prediction !== undefined ? data.prediction : (data.result || data.class || data.label);
+    const status = data.status || '';
     const confidence = data.confidence || data.score || data.probability || 0;
-    const isMalicious = prediction === 'malicious' || 
+    
+    // Determine if malicious: prediction === 1 means phishing/malicious
+    const isMalicious = prediction === 1 || 
+                       prediction === 'malicious' || 
                        prediction === 'phishing' || 
-                       prediction === 1 || 
+                       status === 'phishing' ||
                        (typeof prediction === 'number' && prediction > 0.5) ||
-                       (typeof confidence === 'number' && confidence > 0.5 && (prediction === 'malicious' || prediction === 'phishing'));
+                       (typeof confidence === 'number' && confidence > 0.5 && (prediction === 'malicious' || prediction === 'phishing' || status === 'phishing'));
 
     return {
       url,
       scanTime: new Date().toISOString(),
-      prediction: prediction || 'unknown',
+      prediction: status || (prediction === 1 ? 'phishing' : prediction === 0 ? 'safe' : 'unknown'),
       confidence: typeof confidence === 'number' ? confidence : parseFloat(confidence) || 0,
       isMalicious: !!isMalicious,
       scanSuccess: true,
