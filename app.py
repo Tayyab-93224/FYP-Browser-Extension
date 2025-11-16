@@ -45,7 +45,7 @@ def health():
     }), 200
 
 # --- Define the Prediction API Endpoint ---
-@app.route('/predict', methods=['POST'])
+@app.route('/predict', methods=['POST', 'GET'])
 def predict():
     if not model:
         return jsonify({'error': 'Model is not loaded!'}), 500
