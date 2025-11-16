@@ -599,3 +599,30 @@ input[type="text"]:focus {
   color: var(--color-gray-500);
   font-style: italic;
 }
+
+/* Scan result alert animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.scan-result-alert {
+  animation: slideIn 0.3s ease-out;
+}

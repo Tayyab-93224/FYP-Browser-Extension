@@ -21,6 +21,29 @@ except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
+@app.route('/home', methods=['GET'])
+@app.route('/', methods=['GET'])
+def main():
+    print("Main API endpoint reached.")
+    return "Phishy API is running."
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint for the ML model API"""
+    if model is None:
+        return jsonify({
+            'status': 'error',
+            'message': 'Model is not loaded',
+            'api': 'ML Model'
+        }), 500
+    
+    return jsonify({
+        'status': 'running',
+        'message': 'ML Model API is running',
+        'api': 'ML Model',
+        'model_loaded': True
+    }), 200
+
 # --- Define the Prediction API Endpoint ---
 @app.route('/predict', methods=['POST'])
 def predict():

@@ -70,6 +70,15 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
     // Store the combined result
     await storeUrlResult(url.href, combinedResult);
 
+    // Send message to popup that scan results are received (for any result)
+    chrome.runtime.sendMessage({
+      type: 'SCAN_RESULT_RECEIVED',
+      url: url.href,
+      scanResult: combinedResult
+    }).catch(() => {
+      // Ignore errors if popup is not open
+    });
+
     // Show alert if the URL is malicious
     if (combinedResult.isMalicious) {
       showAlert(url.href, combinedResult);

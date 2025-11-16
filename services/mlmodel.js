@@ -2,7 +2,7 @@
 // ML Model API is configured to use localhost (127.0.0.1)
 
 // ML Model API endpoint (hardcoded to localhost)
-const ML_MODEL_API_URL = 'http://127.0.0.1:8000/predict'; // Update port if your ML model uses a different one
+const ML_MODEL_API_URL = 'http://127.0.0.1:5000/predict'; // Update port if your ML model uses a different one
 
 // Scan URL with ML model
 export async function scanUrlWithMlModel(url) {
