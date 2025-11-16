@@ -1,9 +1,11 @@
 import { getAllUrls, clearHistory } from '../services/storage.js';
 import { verifyApiKey } from '../services/virustotal.js';
+import { checkAllApis } from '../services/healthcheck.js';
 
 // Initialize variables
 let currentUrl = '';
 let apiKeySet = false;
+let apiHealthCheckInterval = null;
 
 // DOM Elements
 const currentDomainEl = document.getElementById('current-domain');
@@ -65,6 +67,11 @@ async function checkApiKey() {
   if (!apiKeySet) {
     showApiKeyModal();
     apiKeyErrorEl.textContent = 'Please enter a valid API key.';
+    // Set status indicators to error state when API key is not set
+    vtStatusIndicatorEl.className = 'api-status-indicator error';
+    mlStatusIndicatorEl.className = 'api-status-indicator error';
+    vtStatusIndicatorEl.title = 'API key required';
+    mlStatusIndicatorEl.title = 'API key required';
   } else {
     apiKeyErrorEl.textContent = '';
   }
@@ -161,12 +168,69 @@ async function init() {
 }
 
 async function initAfterKeyValid() {
+  // Check API health status
+  await checkApiHealth();
+  // Start periodic health checks (every 10 seconds)
+  startApiHealthChecks();
   // Get current URL and update UI
   getCurrentTabUrl();
   // Load URL history
   await loadUrlHistory();
   // Load statistics
   await loadStatistics();
+}
+
+// Check API health and update UI
+async function checkApiHealth() {
+  try {
+    const apiStatus = await checkAllApis();
+    
+    // Update VirusTotal status indicator
+    if (apiStatus.virusTotal.running) {
+      vtStatusIndicatorEl.className = 'api-status-indicator success';
+      vtStatusIndicatorEl.title = apiStatus.virusTotal.message || 'VirusTotal API is running';
+    } else {
+      vtStatusIndicatorEl.className = 'api-status-indicator error';
+      vtStatusIndicatorEl.title = apiStatus.virusTotal.error || 'VirusTotal API is not running';
+    }
+    
+    // Update ML Model status indicator
+    if (apiStatus.mlModel.running) {
+      mlStatusIndicatorEl.className = 'api-status-indicator success';
+      mlStatusIndicatorEl.title = apiStatus.mlModel.message || 'ML Model API is running';
+    } else {
+      mlStatusIndicatorEl.className = 'api-status-indicator error';
+      mlStatusIndicatorEl.title = apiStatus.mlModel.error || 'ML Model API is not running';
+    }
+  } catch (error) {
+    console.error('Error checking API health:', error);
+    // Set both to error state if check fails
+    vtStatusIndicatorEl.className = 'api-status-indicator error';
+    mlStatusIndicatorEl.className = 'api-status-indicator error';
+  }
+}
+
+// Start periodic API health checks
+function startApiHealthChecks() {
+  // Clear any existing interval
+  if (apiHealthCheckInterval) {
+    clearInterval(apiHealthCheckInterval);
+  }
+  
+  // Check every 10 seconds
+  apiHealthCheckInterval = setInterval(() => {
+    if (apiKeySet) {
+      checkApiHealth();
+    }
+  }, 10000);
+}
+
+// Stop API health checks
+function stopApiHealthChecks() {
+  if (apiHealthCheckInterval) {
+    clearInterval(apiHealthCheckInterval);
+    apiHealthCheckInterval = null;
+  }
 }
 
 // Get current tab URL
@@ -214,14 +278,17 @@ function updateCurrentUrlStatus(result) {
     // Update VirusTotal status indicator
     if (virusTotalResult.scanSuccess) {
       vtStatusIndicatorEl.className = 'api-status-indicator success';
+      vtStatusIndicatorEl.title = 'VirusTotal API is running and responding';
     } else {
       vtStatusIndicatorEl.className = 'api-status-indicator error';
+      vtStatusIndicatorEl.title = 'VirusTotal scan failed';
     }
   } else {
     maliciousCountEl.textContent = '-';
     suspiciousCountEl.textContent = '-';
     cleanCountEl.textContent = '-';
     vtStatusIndicatorEl.className = 'api-status-indicator error';
+    vtStatusIndicatorEl.title = 'No VirusTotal results available';
   }
   
   // Update ML Model results
@@ -247,13 +314,16 @@ function updateCurrentUrlStatus(result) {
     // Update ML Model status indicator
     if (mlModelResult.scanSuccess) {
       mlStatusIndicatorEl.className = 'api-status-indicator success';
+      mlStatusIndicatorEl.title = 'ML Model API is running and responding';
     } else {
       mlStatusIndicatorEl.className = 'api-status-indicator error';
+      mlStatusIndicatorEl.title = 'ML Model scan failed';
     }
   } else {
     mlPredictionEl.textContent = '-';
     mlConfidenceEl.textContent = '-';
     mlStatusIndicatorEl.className = 'api-status-indicator error';
+    mlStatusIndicatorEl.title = 'No ML Model results available';
   }
   
   // Update last scan time
@@ -455,11 +525,65 @@ chrome.runtime.onMessage.addListener((message) => {
     updateCurrentUrlStatus(message.scanResult);
   }
   
+  if (message.type === 'SCAN_RESULT_RECEIVED') {
+    // Alert user that scan results are received
+    showScanResultAlert(message.scanResult);
+    // Update current URL status if it matches
+    if (message.url === currentUrl) {
+      updateCurrentUrlStatus(message.scanResult);
+    }
+  }
+  
   // Refresh history list and statistics when a new URL is scanned
   loadUrlHistory();
   loadStatistics();
 });
 
+// Show alert when scan results are received
+function showScanResultAlert(scanResult) {
+  // Create a notification-style alert
+  const alertDiv = document.createElement('div');
+  alertDiv.className = 'scan-result-alert';
+  alertDiv.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: var(--color-primary);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    font-size: 14px;
+    max-width: 300px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  
+  const hasVtResult = scanResult.virusTotal?.scanSuccess;
+  const hasMlResult = scanResult.mlModel?.scanSuccess;
+  
+  let message = 'Scan results received: ';
+  const results = [];
+  if (hasVtResult) results.push('VirusTotal');
+  if (hasMlResult) results.push('ML Model');
+  
+  message += results.join(' & ') || 'No results';
+  
+  alertDiv.textContent = message;
+  document.body.appendChild(alertDiv);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    alertDiv.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => alertDiv.remove(), 300);
+  }, 3000);
+}
+
 
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', init);
+
+// Cleanup when popup is closed
+window.addEventListener('beforeunload', () => {
+  stopApiHealthChecks();
+});
