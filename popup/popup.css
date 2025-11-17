@@ -28,6 +28,10 @@
   --transition: all 0.2s ease;
 }
 
+html, body {
+  height: 100%;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -43,11 +47,12 @@ body {
 }
 
 .container {
-  width: 650px;
-  max-height: 550px;
-  overflow: hidden;
+  width: 700px;
+  max-height: 570px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  padding-bottom: 8px;
 }
 
 header {
@@ -214,11 +219,22 @@ h2 {
 
 /* API Results Sections */
 .api-results-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 12px;
   background-color: var(--color-gray-50);
   border-radius: var(--border-radius);
   border: 1px solid var(--color-gray-200);
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.analysis-grid .api-results-section {
+  margin-bottom: 0;
+  height: 100%;
 }
 
 .api-results-header {

@@ -44,50 +44,51 @@
         </div>
       </div>
       <div id="scan-details" class="hidden">
-        <!-- VirusTotal Results -->
-        <div class="api-results-section">
-          <div class="api-results-header">
-            <h3>VirusTotal Analysis</h3>
-            <span id="vt-status-indicator" class="api-status-indicator pending" title="Checking API status..."></span>
+        <div class="analysis-grid">
+          <!-- VirusTotal Results -->
+          <div class="api-results-section">
+            <div class="api-results-header">
+              <h3>VirusTotal Analysis</h3>
+              <span id="vt-status-indicator" class="api-status-indicator pending" title="Checking API status..."></span>
+            </div>
+            <div id="vt-results" class="api-results-content">
+              <div class="stats-row">
+                <div class="stat-item">
+                  <span class="stat-label">Malicious</span>
+                  <span id="malicious-count" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Suspicious</span>
+                  <span id="suspicious-count" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Clean</span>
+                  <span id="clean-count" class="stat-value">0</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div id="vt-results" class="api-results-content">
-            <div class="stats-row">
-              <div class="stat-item">
-                <span class="stat-label">Malicious</span>
-                <span id="malicious-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Suspicious</span>
-                <span id="suspicious-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Clean</span>
-                <span id="clean-count" class="stat-value">0</span>
+
+          <!-- ML Model Results -->
+          <div class="api-results-section">
+            <div class="api-results-header">
+              <h3>ML Model Analysis</h3>
+              <span id="ml-status-indicator" class="api-status-indicator pending" title="Checking API status..."></span>
+            </div>
+            <div id="ml-results" class="api-results-content">
+              <div class="ml-stats-row">
+                <div class="ml-stat-item">
+                  <span class="stat-label">Prediction</span>
+                  <span id="ml-prediction" class="stat-value">-</span>
+                </div>
+                <div class="ml-stat-item">
+                  <span class="stat-label">Confidence</span>
+                  <span id="ml-confidence" class="stat-value">-</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- ML Model Results -->
-        <div class="api-results-section">
-          <div class="api-results-header">
-            <h3>ML Model Analysis</h3>
-            <span id="ml-status-indicator" class="api-status-indicator pending" title="Checking API status..."></span>
-          </div>
-          <div id="ml-results" class="api-results-content">
-            <div class="ml-stats-row">
-              <div class="ml-stat-item">
-                <span class="stat-label">Prediction</span>
-                <span id="ml-prediction" class="stat-value">-</span>
-              </div>
-              <div class="ml-stat-item">
-                <span class="stat-label">Confidence</span>
-                <span id="ml-confidence" class="stat-value">-</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div id="last-scan-time" class="last-scan">Last scanned: Never</div>
       </div>
     </div>
