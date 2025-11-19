@@ -4,13 +4,13 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Import CORS
 from urllib.parse import urlparse
-
+import csv
+import os
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# --- Load the Model and Feature List ---
-# This is done ONCE when the server starts
 try:
     print("Loading model and features...")
     model = joblib.load('phishing_model.joblib')
@@ -43,6 +43,24 @@ def health():
         'model_loaded': True
     }), 200
 
+def log_url_classification(url: str, status: str) -> None:
+    """
+    Append the scanned URL and its classification outcome to the
+    appropriate CSV file so results can be reviewed later.
+    """
+    filename = 'phishing_urls.csv' if status == 'phishing' else 'benign_urls.csv'
+    file_exists = os.path.isfile(filename)
+
+    try:
+        with open(filename, mode='a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            if not file_exists:
+                writer.writerow(['timestamp', 'url', 'status'])
+            writer.writerow([datetime.utcnow().isoformat(), url, status])
+    except Exception as log_error:
+        print(f"Failed to log URL classification: {log_error}")
+
+
 @app.route('/predict', methods=['POST', 'GET'])
 def predict():
     if not model:
@@ -68,19 +86,21 @@ def predict():
         result = int(prediction[0]) # Convert numpy.int64 to standard int
 
         # 5. Send the result back as JSON
+        status = 'phishing' if result == 1 else 'safe'
         response = {
             'url': url_to_check,
             'prediction': result,
-            'status': 'phishing' if result == 1 else 'safe'
+            'status': status
         }
+
+        # 6. Log the URL to the appropriate CSV for future analysis
+        log_url_classification(url_to_check, 'phishing' if result == 1 else 'benign')
         return jsonify(response)
 
     except Exception as e:
         print(f"Error during prediction: {e}")
         return jsonify({'error': str(e)}), 500
 
-# --- Run the Server ---
 if __name__ == '__main__':
     print("Starting Flask server...")
-    # Runs the server on http://127.0.0.1:5000
     app.run(port=5000, debug=True)
