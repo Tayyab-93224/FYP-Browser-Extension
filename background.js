@@ -23,6 +23,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
     if (url.protocol === 'chrome:' ||
       url.protocol === 'chrome://extensions/:' ||
       url.protocol === 'about:' ||
+      url.hostname.endsWith('.google.com') ||
       url.protocol === 'file:' ||
       url.hostname === 'localhost' ||
       url.hostname.includes('127.0.0.1')) {

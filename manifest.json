@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Phishy",
   "version": "1.0.0",
-  "description": "Real-time phishing URL detection using VirusTotal API",
+  "description": "Real-time phishing URL detection using Hybrid Results from VirusTotal API and ML Model",
   "permissions": [
     "activeTab",
     "scripting",

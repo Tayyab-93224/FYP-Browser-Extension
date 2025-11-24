@@ -6,10 +6,9 @@ from flask_cors import CORS  # Import CORS
 from urllib.parse import urlparse
 import csv
 import os
-from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
 try:
     print("Loading model and features...")
@@ -28,7 +27,6 @@ def main():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint for the ML model API"""
     if model is None:
         return jsonify({
             'status': 'error',
@@ -43,20 +41,20 @@ def health():
         'model_loaded': True
     }), 200
 
-def log_url_classification(url: str, status: str) -> None:
-    """
-    Append the scanned URL and its classification outcome to the
-    appropriate CSV file so results can be reviewed later.
-    """
-    filename = 'phishing_urls.csv' if status == 'phishing' else 'benign_urls.csv'
+def log_url_classification(url, status):
+    Type = status.capitalize()
+    if status.lower() == 'phishing':
+        filename = 'phishing_urls.csv'
+    else:
+        filename = 'benign_urls.csv'
     file_exists = os.path.isfile(filename)
 
     try:
         with open(filename, mode='a', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
-            if not file_exists:
-                writer.writerow(['timestamp', 'url', 'status'])
-            writer.writerow([datetime.utcnow().isoformat(), url, status])
+            if not file_exists or os.path.getsize(filename) == 0:
+                writer.writerow(['url', 'Type'])
+            writer.writerow([url, Type])
     except Exception as log_error:
         print(f"Failed to log URL classification: {log_error}")
 
@@ -67,34 +65,27 @@ def predict():
         return jsonify({'error': 'Model is not loaded!'}), 500
 
     try:
-        # 1. Get the URL from the JSON request body
         data = request.get_json()
         url_to_check = data.get('url')
 
         if not url_to_check:
             return jsonify({'error': 'No URL provided'}), 400
 
-        # 2. Extract features from the URL
         features_dict = extract_features(url_to_check)
-
-        # 3. Format features for the model (same as test_model.py)
         features_df = pd.DataFrame([features_dict])
         features_df = features_df.reindex(columns=model_features, fill_value=0)
 
-        # 4. Make the prediction
         prediction = model.predict(features_df)
-        result = int(prediction[0]) # Convert numpy.int64 to standard int
+        result = int(prediction[0])
 
-        # 5. Send the result back as JSON
-        status = 'phishing' if result == 1 else 'safe'
+        status = 'phishing' if result == 1 else 'legitimate'
         response = {
             'url': url_to_check,
             'prediction': result,
             'status': status
         }
 
-        # 6. Log the URL to the appropriate CSV for future analysis
-        log_url_classification(url_to_check, 'phishing' if result == 1 else 'benign')
+        log_url_classification(url_to_check, 'phishing' if result == 1 else 'legitimate')
         return jsonify(response)
 
     except Exception as e:

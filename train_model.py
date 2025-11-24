@@ -10,6 +10,36 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 
 def extract_features(url):
     features = {}
+    phishing_keywords = [
+    # Very common phishing keywords
+    "login", "signin", "verify", "secure", "security", "update", "account",
+    "auth", "authentication", "recovery", "confirm", "password", "reset",
+    "support", "helpdesk", "webmail",
+
+    # Urgency / fear-trigger words
+    "urgent", "important", "alert", "warning", "suspended", "blocked",
+    "disabled", "expire", "verify-now", "action-required",
+
+    # Brand impersonation patterns
+    "paypal", "paypal-verify", "amazon-secure", "microsoft-login",
+    "appleid-reset", "bankofamerica-update", "gmail-security",
+
+    # Financial / payment-related
+    "invoice", "payment", "billing", "transaction", "refund", "wallet",
+    "banking",
+
+    # Prize / giveaway scams
+    "prize", "winner", "bonus", "free", "reward", "gift", "promo",
+
+    # Suspicious patterns / login clones
+    "secure-login", "verification", "validate", "access-now", "update-info",
+    "confirm-details", "login-page", "authentication-center",
+
+    # Suspicious domain builder keywords
+    "weebly", "webnode", "wixsite", "weeblysite", "webwave", "wordpress",
+    "blogspot", "google-sites", "strikingly", "godaddysites",
+    "getresponsesite"
+]
     
     if not url.startswith('http'):
         url = 'http://' + url
@@ -41,9 +71,8 @@ def extract_features(url):
         ip_regex = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
         features['is_ip_address'] = 1 if ip_regex.search(domain_name) else 0
 
-        sensitive_words = ['login', 'secure', 'account', 'verify', 'password', 'signin', 'banking', 'paypal', 'ebay']
         features['has_sensitive_words'] = 0
-        for word in sensitive_words:
+        for word in phishing_keywords:
             if word in url.lower():
                 features['has_sensitive_words'] = 1
                 break
@@ -122,8 +151,6 @@ print(confusion_matrix(y_test, y_pred))
 
 
 print("\n--- Classification Report ---")
-# Precision: Of all the links it called phishing, how many were actually phishing?
-# Recall: Of all the actual phishing links, how many did it catch?
 print(classification_report(y_test, y_pred, target_names=['Benign (0)', 'Phishing (1)']))
 # target_names assigns names to the classes for better readability, without it it would just show 0 and 1
 
