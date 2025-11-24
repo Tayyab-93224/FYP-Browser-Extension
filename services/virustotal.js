@@ -33,7 +33,7 @@ export async function scanUrl(url) {
                 'x-apikey': apiKey,
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: `url=${url}`
+            body: `url=${encodeURIComponent(url)}`
         });
 
         if (!response.ok) {
