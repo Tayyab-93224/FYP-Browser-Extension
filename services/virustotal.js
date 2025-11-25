@@ -72,7 +72,7 @@ export async function scanUrl(url) {
                 const isMalicious = stats.malicious > 0 || stats.suspicious > 0;
                 return {
                     url,
-                    scanTime: new Date().toISOString(),
+                    scanTime: new Date().toDateString(),
                     stats,
                     isMalicious,
                     scanSuccess: true,
@@ -84,7 +84,7 @@ export async function scanUrl(url) {
 
         return {
             url,
-            scanTime: new Date().toISOString(),
+            scanTime: new Date().toDateString(),
             stats: stats || {
                 malicious: 0,
                 suspicious: 0,
@@ -101,7 +101,7 @@ export async function scanUrl(url) {
         console.error('Error scanning URL:', error);
         return {
             url,
-            scanTime: new Date().toISOString(),
+            scanTime: new Date().toDateString(),
             stats: {
                 malicious: 0,
                 suspicious: 0,
