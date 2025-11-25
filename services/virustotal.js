@@ -17,16 +17,19 @@ export async function verifyApiKey(apiKeyOverride) {
     }
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function scanUrl(url) {
     try {
         const res = await chrome.storage.local.get('apiKey');
-        const apiKey = res.apiKey;
+        const apiKey = res.apiKey?.trim();
 
         if (!apiKey) {
             throw new Error('API key not found');
         }
 
-        // Submit URL for analysis
         const response = await fetch('https://www.virustotal.com/api/v3/urls', {
             method: 'POST',
             headers: {
@@ -43,25 +46,30 @@ export async function scanUrl(url) {
         const submitData = await response.json();
         const analysisId = submitData.data.id;
 
-        // Poll for the analysis result with exponential backoff (max 5 tries, up to ~10s)
         let tries = 0;
         const maxTries = 5;
         let wait = 1500;
 
         while (tries < maxTries) {
-            await new Promise(res => setTimeout(res, wait));
+            await sleep(wait);
             tries++;
+
             const analysisResponse = await fetch(`https://www.virustotal.com/api/v3/analyses/${analysisId}`, {
                 method: 'GET',
                 headers: {
                     'x-apikey': apiKey
                 }
             });
+
+            if (!analysisResponse.ok) {
+                throw new Error(`Failed to retrieve analysis: ${analysisResponse.status}`);
+            }
+
             const analysisData = await analysisResponse.json();
-            let stats = analysisData?.data?.attributes?.stats;
-            // If stats are available, break early
+            const stats = analysisData?.data?.attributes?.stats;
+
             if (stats && typeof stats.malicious === 'number') {
-                let isMalicious = stats.malicious > 0 || stats.suspicious > 0;
+                const isMalicious = stats.malicious > 0 || stats.suspicious > 0;
                 return {
                     url,
                     scanTime: new Date().toISOString(),
@@ -71,11 +79,9 @@ export async function scanUrl(url) {
                     analysisId
                 };
             }
-            // Increase wait time for next try (exponential backoff)
             wait *= 1.7;
         }
 
-        // If no stats after polling, return as unsuccessful
         return {
             url,
             scanTime: new Date().toISOString(),
