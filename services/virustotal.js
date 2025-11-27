@@ -1,7 +1,7 @@
-export async function verifyApiKey(apiKeyOverride) {
+export async function verifyApiKey(OptionalApiKeyOverride) {
     try {
         const res = await chrome.storage.local.get('apiKey');
-        const apiKey = (apiKeyOverride || res.apiKey || '').trim();
+        const apiKey = (OptionalApiKeyOverride || res.apiKey || '').trim();
         if (!apiKey) {
             return { ok: false, status: 0 };
         }
@@ -13,6 +13,7 @@ export async function verifyApiKey(apiKeyOverride) {
 
         return { ok: response.ok, status: response.status };
     } catch (e) {
+        console.error('verifyApiKey error:', e);
         return { ok: false, status: -1 };
     }
 }
@@ -84,7 +85,7 @@ export async function scanUrl(url) {
 
         return {
             url,
-            scanTime: new Date().toDateString(),
+            scanTime: new Date(),
             stats: stats || {
                 malicious: 0,
                 suspicious: 0,
@@ -101,7 +102,7 @@ export async function scanUrl(url) {
         console.error('Error scanning URL:', error);
         return {
             url,
-            scanTime: new Date().toDateString(),
+            scanTime: new Date(),
             stats: {
                 malicious: 0,
                 suspicious: 0,
