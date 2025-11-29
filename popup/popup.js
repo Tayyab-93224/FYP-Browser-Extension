@@ -8,6 +8,7 @@ let apiKeySet = false;
 let apiHealthCheckInterval = null;
 
 // DOM Elements
+const clearHistoryLink = document.getElementById('clear-history-link');
 const currentDomainEl = document.getElementById('current-domain');
 const currentPathEl = document.getElementById('current-path');
 const statusTextEl = document.getElementById('status-text');
@@ -76,6 +77,20 @@ async function checkApiKey() {
     apiKeyErrorEl.textContent = '';
   }
 }
+
+clearHistoryLink.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const confirmed = confirm('Are you sure you want to clear the scan history? This action cannot be undone.');
+
+  if (confirmed) {
+    await clearHistory();
+    loadUrlHistory();
+    loadStatistics();
+    alert('Scan history cleared.');
+  } else {
+    alert('Clear history action canceled.');
+  }
+});
 
 // Save API key
 saveApiKeyBtn.addEventListener('click', async () => {

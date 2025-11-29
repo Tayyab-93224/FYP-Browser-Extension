@@ -65,6 +65,18 @@ header {
   box-shadow: var(--shadow);
 }
 
+#clear-history-link {
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--color-gray-600);
+  transition: color 0.2s;
+}
+
+#clear-history-link:hover {
+  color: var(--color-danger);
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -344,6 +356,12 @@ h2 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 select {
