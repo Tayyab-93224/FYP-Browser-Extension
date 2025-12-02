@@ -19,11 +19,13 @@ except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
+
 @app.route('/home', methods=['GET'])
 @app.route('/', methods=['GET'])
 def main():
     print("Main API endpoint reached.")
     return "Phishy API is running."
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -78,11 +80,17 @@ def predict():
         prediction = model.predict(features_df)
         result = int(prediction[0])
 
+        # model.predict_proba returns an array like this: [[0.30, 0.70]]
+
+        probability = model.predict_proba(features_df)[0][1]
+        confidence = confidence = round(float(probability) * 100, 2)
+
         status = 'phishing' if result == 1 else 'legitimate'
         response = {
             'url': url_to_check,
             'prediction': result,
-            'status': status
+            'status': status,
+            'confidence': confidence
         }
 
         log_url_classification(url_to_check, 'phishing' if result == 1 else 'legitimate')
@@ -91,6 +99,7 @@ def predict():
     except Exception as e:
         print(f"Error during prediction: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     print("Starting Flask server...")
