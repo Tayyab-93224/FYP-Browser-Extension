@@ -77,7 +77,6 @@ export async function scanUrl(url) {
                     stats,
                     isMalicious,
                     scanSuccess: true,
-                    analysisId
                 };
             }
             wait *= 1.7;
@@ -85,7 +84,7 @@ export async function scanUrl(url) {
 
         return {
             url,
-            scanTime: new Date(),
+            scanTime: new Date().toDateString(),
             stats: stats || {
                 malicious: 0,
                 suspicious: 0,
@@ -94,7 +93,6 @@ export async function scanUrl(url) {
             },
             isMalicious: false,
             scanSuccess: false,
-            analysisId,
             error: 'Scan result not ready in time'
         };
 
@@ -102,7 +100,7 @@ export async function scanUrl(url) {
         console.error('Error scanning URL:', error);
         return {
             url,
-            scanTime: new Date(),
+            scanTime: new Date().toDateString(),
             stats: {
                 malicious: 0,
                 suspicious: 0,

@@ -1,25 +1,18 @@
-// API Health Check Service
-// Checks if both VirusTotal and ML Model APIs are running
-
 const ML_MODEL_API_URL = 'http://127.0.0.1:5000';
 const VIRUSTOTAL_API_URL = 'https://www.virustotal.com/api/v3';
 
-/**
- * Check if ML Model API is running
- * @returns {Promise<{running: boolean, error?: string}>}
- */
+
 export async function checkMlModelApi() {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
-  
+
   try {
     const response = await fetch(`${ML_MODEL_API_URL}/health`, {
-      method: 'GET',
-      signal: controller.signal
+      signal: controller.signal   // controller.signal contains the abort signal that can be true or false
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (response.ok) {
       const data = await response.json();
       return {
@@ -30,29 +23,33 @@ export async function checkMlModelApi() {
     } else {
       return {
         running: false,
-        error: `API returned status ${response.status}`
+        error: `Server Error: ${response.status}`
       };
     }
   } catch (error) {
-    clearTimeout(timeoutId);
-    // Network error, API not running, or timeout
-    return {
-      running: false,
-      error: error.name === 'AbortError' || error.name === 'TimeoutError' ? 'Connection timeout' : 'API not reachable'
-    };
+    clearTimeout(timeoutId);  // clearing the timeout is essential to stop the request if it takes too long
+    if (error.name === 'AbortError') {
+      return {
+        running: false,
+        error: 'Connection timeout (No Response)'
+      };
+    } else {
+      return {
+        running: false,
+        error: 'API not reachable (Network Error)'
+      };
+    }
   }
 }
 
-/**
- * Check if VirusTotal API is accessible
- * @returns {Promise<{running: boolean, error?: string}>}
- */
+
 export async function checkVirusTotalApi() {
   let timeoutId = null;
-  
+  const controller = new AbortController();
+
   try {
-    const { apiKey } = await chrome.storage.local.get('apiKey');
-    
+    const { apiKey } = await chrome.storage.local.get('apiKey'); // this is object destructuring
+
     if (!apiKey) {
       return {
         running: false,
@@ -60,57 +57,62 @@ export async function checkVirusTotalApi() {
       };
     }
 
-    // Try to verify the API key (lightweight check)
-    const controller = new AbortController();
     timeoutId = setTimeout(() => controller.abort(), 5000);
-    
+
     const response = await fetch(`${VIRUSTOTAL_API_URL}/users/me`, {
-      method: 'GET',
       headers: { 'x-apikey': apiKey },
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    timeoutId = null;
-    
-    if (response.ok || response.status === 401) {
-      // 401 means API is reachable but key might be invalid
-      // We consider it "running" if we get a response
+
+    if (response.ok) {
       return {
         running: true,
-        status: response.ok ? 'running' : 'key_invalid',
-        message: response.ok ? 'VirusTotal API is running' : 'VirusTotal API is reachable but API key may be invalid'
+        status: 'running',
+        message: 'VirusTotal API is running'
       };
+    }
+
+    if (response.status === 401) {
+      return {
+        running: true,
+        status: 'invalid_key',
+        message: 'VirusTotal API is reachable but API key may be invalid'
+      }
+
     } else {
       return {
         running: false,
-        error: `API returned status ${response.status}`
+        error: `API responded with status: ${response.status}`
       };
     }
   } catch (error) {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+    if (timeoutId) clearTimeout(timeoutId);
     return {
       running: false,
-      error: error.name === 'AbortError' || error.name === 'TimeoutError' ? 'Connection timeout' : 'API not reachable'
+      error: error.name === 'AbortError'
+        ? 'Connection timeout'
+        : 'API not reachable'
     };
   }
 }
 
-/**
- * Check both APIs
- * @returns {Promise<{mlModel: Object, virusTotal: Object}>}
- */
+
 export async function checkAllApis() {
   const [mlModelStatus, virusTotalStatus] = await Promise.allSettled([
     checkMlModelApi(),
     checkVirusTotalApi()
   ]);
-  
+
   return {
-    mlModel: mlModelStatus.status === 'fulfilled' ? mlModelStatus.value : { running: false, error: 'Check failed' },
-    virusTotal: virusTotalStatus.status === 'fulfilled' ? virusTotalStatus.value : { running: false, error: 'Check failed' }
+    mlModel: mlModelStatus.status === 'fulfilled'
+      ? mlModelStatus.value
+      : { running: false, error: 'ML Model API Check failed' },
+
+    virusTotal: virusTotalStatus.status === 'fulfilled'
+      ? virusTotalStatus.value
+      : { running: false, error: 'VirusTotal API Check failed' }
   };
 }
 

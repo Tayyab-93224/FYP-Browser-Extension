@@ -2,24 +2,19 @@ import { scanUrl, verifyApiKey } from './services/virustotal.js';
 import { scanUrlWithMlModel } from './services/mlmodel.js';
 import { storeUrlResult } from './services/storage.js';
 
-// Track active scans to avoid duplicate banners
 const activeScans = new Map();
 
-// Listen for navigation events - use onCommitted to start scanning earlier
 chrome.webNavigation.onCommitted.addListener(async (details) => {
-  // Only check main frame navigations
   if (details.frameId !== 0) return;
 
   try {
     const { apiKeyValid } = await chrome.storage.local.get('apiKeyValid');
     if (!apiKeyValid) {
-      // Gate: do not scan until API key is verified
       return;
     }
 
     const url = new URL(details.url);
 
-    // Skip local/internal URLs and browser pages
     if (url.protocol === 'chrome:' ||
       url.protocol === 'chrome://extensions/:' ||
       url.protocol === 'about:' ||
@@ -31,24 +26,21 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
       return;
     }
 
-    // Check if URL has already been scanned recently (within last 24 hours)
     const storedResults = await chrome.storage.local.get(url.href);
     if (storedResults[url.href]) {
       const storedData = storedResults[url.href];
       const scanTime = new Date(storedData.scanTime);
-      const now = new Date();
+      const now = new Date().toDateString();
       const hoursSinceScan = (now - scanTime) / (1000 * 60 * 60);
 
-      // If url was scanned in the last 24 hours and was flagged as malicious, alert immediately
       if (hoursSinceScan < 24) {
-        if (storedData.isMalicious) {
+        if (storedData.isMalicious || storedData.isSuspicious) {
           showAlert(url.href, storedData, details.tabId);
         }
         return;
       }
     }
 
-    // Initialize scan state for this URL
     const scanState = {
       url: url.href,
       tabId: details.tabId,
@@ -58,57 +50,43 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
     };
     activeScans.set(url.href, scanState);
 
-    // Start both scans in parallel but handle results as they come
-    const scanPromises = [
-      scanUrl(url.href).then(result => {
-        scanState.virusTotal = result;
-        // Show banner immediately if VirusTotal detects threat
-        if (result.isMalicious) {
-          showAlertImmediately(url.href, scanState, 'VirusTotal');
-        }
-        return result;
-      }).catch(error => {
-        console.error('VirusTotal scan error:', error);
-        scanState.virusTotal = { isMalicious: false, scanSuccess: false, error: error.message };
-        return null;
-      }),
-      scanUrlWithMlModel(url.href).then(result => {
-        scanState.mlModel = result;
-        // Show banner immediately if ML Model detects threat
-        if (result.isMalicious) {
-          showAlertImmediately(url.href, scanState, 'ML Model');
-        }
-        return result;
-      }).catch(error => {
-        console.error('ML Model scan error:', error);
-        scanState.mlModel = { isMalicious: false, scanSuccess: false, error: error.message };
-        return null;
-      })
-    ];
+    const vtResult = await scanUrl(url.href).catch(error => {
+      console.error('VirusTotal scan error:', error);
+      return { isMalicious: false, scanSuccess: false, error: error.message };
+    });
 
-    // Wait for both to complete for final result
-    const [vtResult, mlResult] = await Promise.allSettled(scanPromises);
-    const finalVtResult = vtResult.status === 'fulfilled' ? vtResult.value : null;
-    const finalMlResult = mlResult.status === 'fulfilled' ? mlResult.value : null;
+    const mlResult = await scanUrlWithMlModel(url.href).catch(error => {
+      console.error('ML Model scan error:', error);
+      return { isMalicious: false, scanSuccess: false, error: error.message };
+    });
 
-    // Combine results
+    scanState.virusTotal = vtResult;
+    scanState.mlModel = mlResult;
+
+    if (vtResult?.isMalicious) {
+      showAlertImmediately(url.href, scanState, 'VirusTotal');
+    }
+
+    if (mlResult?.isMalicious) {
+      showAlertImmediately(url.href, scanState, 'ML Model');
+    }
+
+    const finalVtResult = vtResult;
+    const finalMlResult = mlResult;
+
     const combinedResult = {
       url: url.href,
-      scanTime: new Date().toISOString(),
-      virusTotal: finalVtResult || scanState.virusTotal,
-      mlModel: finalMlResult || scanState.mlModel,
-      // Determine overall malicious status (if either API flags it as malicious)
-      isMalicious: (finalVtResult?.isMalicious || false) || (finalMlResult?.isMalicious || false),
-      // Overall scan success (at least one API succeeded)
-      scanSuccess: (finalVtResult?.scanSuccess || false) || (finalMlResult?.scanSuccess || false)
+      scanTime: new Date().toDateString(),
+      virusTotal: finalVtResult,
+      mlModel: finalMlResult,
+      isMalicious: Boolean(finalVtResult?.isMalicious || finalMlResult?.isMalicious),
+      scanSuccess: Boolean(finalVtResult?.scanSuccess || finalMlResult?.scanSuccess)
     };
 
     console.log("Combined Scan Result: \n", combinedResult);
 
-    // Store the combined result
     await storeUrlResult(url.href, combinedResult);
 
-    // Send message to popup that scan results are received (for any result)
     chrome.runtime.sendMessage({
       type: 'SCAN_RESULT_RECEIVED',
       url: url.href,
@@ -117,18 +95,15 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
       // Ignore errors if popup is not open
     });
 
-    // Update banner if not shown yet but threat detected
-    if (combinedResult.isMalicious && !scanState.bannerShown) {
+    if (combinedResult.isMalicious && scanState.bannerShown === false) {
       showAlert(url.href, combinedResult, details.tabId);
     } else if (combinedResult.isMalicious && scanState.bannerShown) {
-      // Update existing banner with complete information
       updateBanner(url.href, combinedResult, details.tabId);
     }
 
-    // Clean up scan state after a delay
     setTimeout(() => {
       activeScans.delete(url.href);
-    }, 60000); // Keep for 1 minute
+    }, 60000);
 
   } catch (error) {
     console.error('Error during URL scan:', error);
@@ -136,12 +111,13 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
   }
 });
 
-// Function to show alert immediately when first threat is detected
+// ------------------------ Checkpoint ------------------
+
 function showAlertImmediately(url, scanState, detectedBy) {
   if (scanState.bannerShown) return; // Already shown
-  
+
   scanState.bannerShown = true;
-  
+
   // Build immediate alert message
   let alertMessage = '';
   if (detectedBy === 'VirusTotal') {
@@ -175,18 +151,18 @@ function showAlert(url, scanResult, tabId) {
   const suspiciousCount = scanResult.virusTotal?.stats?.suspicious || 0;
   const mlModelFlagged = scanResult.mlModel?.isMalicious || false;
   const vtFlagged = (maliciousCount > 0 || suspiciousCount > 0);
-  
+
   // Build alert message showing which API detected it
   let alertMessage = '';
   const detectors = [];
-  
+
   if (vtFlagged) {
     detectors.push(`VirusTotal (${maliciousCount} security vendors)`);
   }
   if (mlModelFlagged) {
     detectors.push('ML Model');
   }
-  
+
   if (detectors.length > 0) {
     alertMessage = `⚠ Danger: This site has been flagged malicious by ${detectors.join(' and ')}. Hackers will likely attempt to steal your information.`;
   }
@@ -211,22 +187,22 @@ function showAlert(url, scanResult, tabId) {
 // Function to update existing banner
 function updateBanner(url, scanResult, tabId) {
   if (!tabId) return;
-  
+
   const maliciousCount = scanResult.virusTotal?.stats?.malicious || 0;
   const suspiciousCount = scanResult.virusTotal?.stats?.suspicious || 0;
   const mlModelFlagged = scanResult.mlModel?.isMalicious || false;
   const vtFlagged = (maliciousCount > 0 || suspiciousCount > 0);
-  
+
   let alertMessage = '';
   const detectors = [];
-  
+
   if (vtFlagged) {
     detectors.push(`VirusTotal (${maliciousCount} security vendors)`);
   }
   if (mlModelFlagged) {
     detectors.push('ML Model');
   }
-  
+
   if (detectors.length > 0) {
     alertMessage = `⚠ Danger: This site has been flagged malicious by ${detectors.join(' and ')}. Hackers will likely attempt to steal your information.`;
     injectBanner(tabId, alertMessage, 'phishy-warning-banner');
@@ -279,7 +255,7 @@ function injectBanner(tabId, alertMessage, bannerId) {
         closeBtn.onclick = () => div.remove();
 
         div.appendChild(closeBtn);
-        
+
         // Try to prepend to body, if not ready, wait for DOM
         if (document.body) {
           document.body.prepend(div);
