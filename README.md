@@ -22,9 +22,10 @@
 - [Tech Stack](#-tech-stack)
 - [Limitations](#-limitations)
 - [License](#-license)
+
 ---
 
-## Project Overview
+##  Project Overview
 
 **Phishy** solves the latency vs. accuracy trade-off in web security. Unlike standard extensions that rely solely on slow external APIs, Phishy uses a **Dual-Engine Parallel Architecture**.
 
@@ -36,14 +37,14 @@ The system persists all scan history and user logs in a structured **SQLite data
 
 ---
 
-## Key Features
+##  Key Features
 
 - **High-Performance Backend:** Built on **FastAPI** for asynchronous, non-blocking request handling.
 - **Zero-Day Protection:** Detects never-before-seen phishing links using feature extraction logic.
 - **Verified Threat Intelligence:** Cross-references URLs with over 70 security vendors via VirusTotal.
 - **Structured Persistence:** Automatically saves scan logs and user data to a local **SQLite database**.
 - **Low Latency:** "Race condition" logic ensures the user isn't stuck waiting for a slow API response.
-- **Immediate Visual Alerts:** On-page banners and browser icon badges (❗) for dangerous sites and (✔️) for safe sites.
+- **Immediate Visual Alerts:** On-page banners and browser icon badges (❗) for dangerous sites and (✔️) for safe ones.
 
 ---
 
@@ -58,7 +59,7 @@ The system follows a **Client-Server-Database** hybrid model:
 
 ---
 
-## Directory Structure
+## 📂 Directory Structure
 
 ```text
 ├── 📂 assets/              # Icons and images for the extension
@@ -74,3 +75,50 @@ The system follows a **Client-Server-Database** hybrid model:
 ├── phishy.db               # SQLite Database (Auto-generated)
 ├── requirements.txt        # Python dependencies
 └── README.md               # Project Documentation
+
+```
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+
+* **Python 3.8+** installed.
+* **Google Chrome** browser.
+
+
+## Usage Guide
+
+1. **Keep the Server Running:** The terminal running `uvicorn` must remain open while you browse.
+2. **API Key Setup:** Click the extension icon and enter your VirusTotal API Key (this is now saved securely in the SQLite database).
+3. **Browse Normally:** - If a site is safe, nothing happens.
+* If a site is **Phishing**, a red banner will appear at the top of the page.
+
+
+4. **Check History:** Click the extension icon to view a log of recent scans. This data is fetched directly from the database via the API.
+
+---
+
+## Tech Stack
+
+| Component | Technology | Role |
+| --- | --- | --- |
+| **Frontend** | HTML, CSS, JavaScript | Browser Extension UI & Logic |
+| **Backend** | Python, FastAPI | High-Performance Asynchronous API |
+| **Database** | SQLite (SQLAlchemy) | Structured Data Persistence & Logs |
+| **ML Engine** | Scikit-Learn (Random Forest) | Zero-day Threat Detection |
+| **API** | VirusTotal v3 | Verified Threat Intelligence |
+
+---
+
+## Limitations
+
+* **Local Server Required:** The `main.py` script must be running locally for ML detection and Database access to function.
+* **API Rate Limits:** The standard VirusTotal free API has a request limit. The extension gracefully falls back to the ML model if the API quota is exceeded.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
