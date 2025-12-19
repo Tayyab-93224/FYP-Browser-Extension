@@ -323,7 +323,7 @@ function updateCurrentUrlStatus(result) {
     
     mlPredictionEl.textContent = predictionText;
     mlConfidenceEl.textContent = typeof confidence === 'number' 
-      ? `${(confidence * 100).toFixed(1)}%` 
+      ? `${(confidence).toFixed(1)}%` 
       : `${confidence}%`;
     
     // Update ML Model status indicator
