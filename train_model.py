@@ -10,37 +10,6 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 
 def extract_features(url):
     features = {}
-    phishing_keywords = [
-    # Very common phishing keywords
-    "login", "signin", "verify", "secure", "security", "update", "account",
-    "auth", "authentication", "recovery", "confirm", "password", "reset",
-    "support", "helpdesk", "webmail",
-
-    # Urgency / fear-trigger words
-    "urgent", "important", "alert", "warning", "suspended", "blocked",
-    "disabled", "expire", "verify-now", "action-required",
-
-    # Brand impersonation patterns
-    "paypal", "paypal-verify", "amazon-secure", "microsoft-login",
-    "appleid-reset", "bankofamerica-update", "gmail-security",
-
-    # Financial / payment-related
-    "invoice", "payment", "billing", "transaction", "refund", "wallet",
-    "banking",
-
-    # Prize / giveaway scams
-    "prize", "winner", "bonus", "free", "reward", "gift", "promo",
-
-    # Suspicious patterns / login clones
-    "secure-login", "verification", "validate", "access-now", "update-info",
-    "confirm-details", "login-page", "authentication-center",
-
-    # Suspicious domain builder keywords
-    "weebly", "webnode", "wixsite", "weeblysite", "webwave", "wordpress",
-    "blogspot", "google-sites", "strikingly", "godaddysites",
-    "getresponsesite"
-]
-    
     if not url.startswith('http'):
         url = 'http://' + url
 
@@ -71,20 +40,13 @@ def extract_features(url):
         ip_regex = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
         features['is_ip_address'] = 1 if ip_regex.search(domain_name) else 0
 
-        features['has_sensitive_words'] = 0
-        for word in phishing_keywords:
-            if word in url.lower():
-                features['has_sensitive_words'] = 1
-                break
-
     except Exception as e:
         print(f"Error parsing the URL {url}: {e}")
         feature_names = [
             'url_length', 'hostname_length', 'path_length', 'count_dot', 'count_dash', 
             'count_underscore', 'count_slash', 'count_question', 'count_equals', 
             'count_at', 'count_ampersand', 'num_subdomains', 'uses_https', 
-            'is_ip_address', 'has_sensitive_words', 'domain_length', 
-            'domain_has_digits', 'domain_has_non_ascii'
+            'is_ip_address', 'domain_length', 'domain_has_digits', 'domain_has_non_ascii'
         ]
         features = {name: 0 for name in feature_names}
 
