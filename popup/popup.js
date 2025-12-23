@@ -2,12 +2,10 @@ import { getAllUrls, clearHistory } from '../services/storage.js';
 import { verifyApiKey } from '../services/virustotal.js';
 import { checkAllApis } from '../services/healthcheck.js';
 
-// Initialize variables
 let currentUrl = '';
 let apiKeySet = false;
 let apiHealthCheckInterval = null;
 
-// DOM Elements
 const clearHistoryLink = document.getElementById('clear-history-link');
 const currentDomainEl = document.getElementById('current-domain');
 const currentPathEl = document.getElementById('current-path');
@@ -25,26 +23,22 @@ const threatsBlockedEl = document.getElementById('threats-blocked');
 const scanProgressBarEl = document.getElementById('scan-progress-bar');
 const scanRateValueEl = document.getElementById('scan-rate-value');
 
-// ML Model DOM Elements
 const mlPredictionEl = document.getElementById('ml-prediction');
 const mlConfidenceEl = document.getElementById('ml-confidence');
 const vtStatusIndicatorEl = document.getElementById('vt-status-indicator');
 const mlStatusIndicatorEl = document.getElementById('ml-status-indicator');
 
-// Tab Elements
 const historyTabBtn = document.getElementById('history-tab-btn');
 const statsTabBtn = document.getElementById('stats-tab-btn');
 const historyTab = document.getElementById('history-tab');
 const statsTab = document.getElementById('stats-tab');
 
-// Modal Elements
 const apiKeyModal = document.getElementById('api-key-modal');
 const apiKeyInput = document.getElementById('api-key-input');
 const saveApiKeyBtn = document.getElementById('save-api-key-btn');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const settingsBtn = document.getElementById('settings-btn');
 
-// Add error message element for API key modal
 const apiKeyErrorEl = document.createElement('div');
 apiKeyErrorEl.style.color = 'var(--color-danger)';
 apiKeyErrorEl.style.fontSize = '13px';
@@ -52,13 +46,10 @@ apiKeyErrorEl.style.marginTop = '8px';
 apiKeyErrorEl.className = 'api-key-error';
 apiKeyInput.parentNode.appendChild(apiKeyErrorEl);
 
-// Helper function to validate VirusTotal API key format
 function isValidApiKey(key) {
-  // VirusTotal API keys are 64 hex characters (v3), or 32 chars (v2, legacy)
   return /^[a-fA-F0-9]{64}$/.test(key) || /^[a-fA-F0-9]{32}$/.test(key);
 }
 
-// Check if API key is verified
 async function checkApiKey() {
   const result = await chrome.storage.local.get(['apiKey', 'apiKeyValid']);
   const apiKey = result.apiKey ? result.apiKey.trim() : '';
@@ -68,7 +59,6 @@ async function checkApiKey() {
   if (!apiKeySet) {
     showApiKeyModal();
     apiKeyErrorEl.textContent = 'Please enter a valid API key.';
-    // Set status indicators to error state when API key is not set
     vtStatusIndicatorEl.className = 'api-status-indicator error';
     mlStatusIndicatorEl.className = 'api-status-indicator error';
     vtStatusIndicatorEl.title = 'API key required';
@@ -92,7 +82,6 @@ clearHistoryLink.addEventListener('click', async (e) => {
   }
 });
 
-// Save API key
 saveApiKeyBtn.addEventListener('click', async () => {
   const apiKey = apiKeyInput.value.trim();
 
@@ -103,7 +92,6 @@ saveApiKeyBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Verify with VirusTotal
   apiKeyErrorEl.textContent = 'Verifying API key...';
   const verification = await verifyApiKey(apiKey);
   if (verification.ok) {
@@ -111,7 +99,6 @@ saveApiKeyBtn.addEventListener('click', async () => {
     apiKeySet = true;
     apiKeyModal.classList.add('hidden');
     apiKeyErrorEl.textContent = '';
-    // Refresh UI sections now that key is valid
     await initAfterKeyValid();
   } else {
     await chrome.storage.local.set({ apiKeyValid: false });
@@ -119,17 +106,14 @@ saveApiKeyBtn.addEventListener('click', async () => {
   }
 });
 
-// Close modal
 closeModalBtn.addEventListener('click', () => {
   apiKeyModal.classList.add('hidden');
 });
 
-// Show settings modal
 settingsBtn.addEventListener('click', () => {
   showApiKeyModal();
 });
 
-// Show API key modal
 function showApiKeyModal() {
   chrome.storage.local.get('apiKey', (result) => {
     if (result.apiKey) {
@@ -139,18 +123,14 @@ function showApiKeyModal() {
   });
 }
 
-// Initialize popup
 async function init() {
-  // Notify background script that popup is opened
   chrome.runtime.sendMessage({ type: 'POPUP_OPENED' });
   
-  // Check if API key is set
   await checkApiKey();
   
   if (apiKeySet) {
     await initAfterKeyValid();
   } else {
-    // Hide scan details and show empty states while waiting for valid key
     scanDetailsEl.classList.add('hidden');
     const status = document.querySelector('.scan-status');
     if (status) {
