@@ -34,7 +34,7 @@ class VirusTotalStats(BaseModel):
     harmless: int = 0
     undetected: int = 0
 
-# This is used in the CombinedScanResult schema
+# This one is used in the CombinedScanResult schema
 class VirusTotalResult(BaseModel):
     """VirusTotal scan result structure"""
     url: str
@@ -43,3 +43,52 @@ class VirusTotalResult(BaseModel):
     isMalicious: bool
     scanSuccess: bool
     error: Optional[str] = None
+
+# ML Model Result Schemas
+
+# This one is used in the CombinedScanResult schema
+class MLModelResult(BaseModel):
+    """ML Model scan result structure"""
+    url: str
+    scanTime: str
+    prediction: str
+    confidence: float = Field(..., ge=0, le=100)
+    isMalicious: bool
+    scanSuccess: bool
+    rawResponse: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+# Combined Scan Result Schemas
+
+class CombinedScanResult(BaseModel):
+    """Combined scan result from both VirusTotal and ML Model"""
+    url: str
+    scanTime: str
+    virusTotal: Optional[VirusTotalResult] = None
+    mlModel: Optional[MLModelResult] = None
+    isMalicious: bool
+    scanSuccess: bool
+
+
+class UrlHistoryItem(BaseModel):
+    """URL history item structure (from storage.js urlList)"""
+    url: str
+    scanTime: str
+    isMalicious: bool
+    scanSuccess: bool
+    hasVirusTotal: bool
+    hasMlModel: bool
+
+
+class UrlHistoryResponse(BaseModel):
+    """Response containing list of URL history items"""
+    urls: List[UrlHistoryItem]
+    total: int
+
+
+class GetUrlResultResponse(BaseModel):
+    """Response for getting a specific URL result"""
+    url: str
+    scanResult: Optional[CombinedScanResult] = None
+    found: bool
