@@ -92,3 +92,40 @@ class GetUrlResultResponse(BaseModel):
     url: str
     scanResult: Optional[CombinedScanResult] = None
     found: bool
+
+
+# API Key Management Schemas
+
+class ApiKeyRequest(BaseModel):
+    """Request to store or update API key"""
+    apiKey: str = Field(..., min_length=32, max_length=64, description="VirusTotal API key")
+
+
+class ApiKeyResponse(BaseModel):
+    """Response for API key operations"""
+    apiKey: Optional[str] = None  # Only return if needed, usually not for security
+    apiKeyValid: bool
+    message: Optional[str] = None
+
+
+class ApiKeyVerificationRequest(BaseModel):
+    """Request to verify an API key"""
+    apiKey: str = Field(..., min_length=32, max_length=64)
+
+
+class ApiKeyVerificationResponse(BaseModel):
+    """Response for API key verification"""
+    ok: bool
+    status: int  # HTTP status code
+
+
+class ErrorResponse(BaseModel):
+    """Standard error response"""
+    error: str
+    detail: Optional[str] = None
+
+
+class SuccessResponse(BaseModel):
+    """Standard success response"""
+    success: bool = True
+    message: str
